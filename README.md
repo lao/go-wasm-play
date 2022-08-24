@@ -1,6 +1,6 @@
 # Playing with Go and WebAssembly
 
-following this tutorial, just to play around with Go
+repo for this [tutorial](https://golangbot.com/webassembly-using-go/), just to play around with Go building to Wasm
 
 ## Scripts
 
@@ -14,3 +14,4 @@ make run-server
 [ ] load file from input tag
 [ ] compress files with different algo from go
 [ ] resize and other image related actions and bench
+[ ] test with big files
