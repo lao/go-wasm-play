@@ -10,8 +10,9 @@ make run-server
 ```
 
 # TODO:
+- [x] basic go package built to webassembly and called from js
+- [ ] load file from input tag
 
-[ ] load file from input tag
-[ ] compress files with different algo from go
-[ ] resize and other image related actions and bench
-[ ] test with big files
+- [ ] compress files with different algo from go
+- [ ] resize and other image related actions and bench
+- [ ] test with big files
