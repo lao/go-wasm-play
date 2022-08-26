@@ -5,7 +5,11 @@ repo for this [tutorial](https://golangbot.com/webassembly-using-go/), just to p
 ## Scripts
 
 ```bash
+# build the wasm package with go
 make build-wasm 
+# build the wasm package with tiny-go
+make build-wasm-tiny-go 
+# run the server 
 make run-server
 ```
 
