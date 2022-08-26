@@ -1,0 +1,24 @@
+<html>  
+    <head>
+        <meta charset="utf-8"/>
+        <script src="tiny-go/wasm_exec.js"></script>
+        <script>
+            const go = new Go();
+            const bench = (func, input, iterations) => {
+              const start = new Date;
+              for (let i = 0; i < iterations; i++) {
+                func(input);
+              }
+              const finish = new Date()
+              return (finish - start);
+            };
+            WebAssembly.instantiateStreaming(fetch("tiny-go/json.wasm"), go.importObject).then((result) => {
+                go.run(result.instance);
+                results = bench(md5Hash, '1234555', 100);
+                console.log(results);
+            });
+            
+        </script>
+    </head>
+    <body></body>
+</html>  
