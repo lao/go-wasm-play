@@ -6,11 +6,11 @@ repo for this [tutorial](https://golangbot.com/webassembly-using-go/), just to p
 
 ```bash
 # build the wasm package with go
-make build-wasm 
+make build.wasm 
 # build the wasm package with tiny-go
-make build-wasm-tiny-go 
+make build.wasm.tinygo 
 # run the server 
-make run-server
+make run.server
 ```
 
 ## Tiny-go problems
