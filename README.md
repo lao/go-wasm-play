@@ -26,4 +26,5 @@ make run.server
 - [ ] compress files with different algorithms from go and benchmark
 - [ ] resize and other image related actions and benchmark
 - [ ] test with big files
+- [ ] try to add async func https://issuecloser.com/blog/golang-wasm-async-function 
 
