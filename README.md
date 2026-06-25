@@ -120,7 +120,18 @@ make test        # go test ./...  +  Node end-to-end smoke test
   `wasm_exec.js` in Node and exercises every exported function, including Promise rejection on bad
   input.
 
-CI runs formatting, vet, the unit tests and the smoke test on every push and pull request.
+### Continuous integration
+
+A ready-to-use GitHub Actions pipeline (gofmt, vet, unit tests, Wasm build, smoke test)
+ships at [`.github/ci.yml`](.github/ci.yml). Enable it by moving it into the workflows
+directory:
+
+```bash
+git mv .github/ci.yml .github/workflows/ci.yml
+```
+
+It lives outside `workflows/` only because the token that created this branch lacks
+GitHub's `workflow` scope; once moved, the CI badge above goes live.
 
 ## TinyGo (experimental)
 
