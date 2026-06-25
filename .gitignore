@@ -1,2 +1,13 @@
 .vscode
 .DS_Store
+
+# compiled server binary
+/server
+/cmd/server/server
+
+# go test artifacts
+*.test
+*.out
+
+# node
+node_modules/

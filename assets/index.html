@@ -1,24 +1,296 @@
-<html>  
-    <head>
-        <meta charset="utf-8"/>
-        <script src="wasm_exec.js"></script>
-        <script>
-            const go = new Go();
-            const bench = (func, input, iterations) => {
-              const start = new Date;
-              for (let i = 0; i < iterations; i++) {
-                func(input);
-              }
-              const finish = new Date()
-              return (finish - start);
-            };
-            WebAssembly.instantiateStreaming(fetch("json.wasm"), go.importObject).then((result) => {
-                go.run(result.instance);
-                results = bench(md5Hash, '1234555', 100);
-                console.log(results);
-            });
-            
-        </script>
-    </head>
-    <body></body>
-</html>  
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Go + WebAssembly playground</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>%E2%9A%A1</text></svg>" />
+  <style>
+    :root {
+      --bg: #0f172a; --panel: #1e293b; --panel-2: #334155;
+      --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8; --go: #00add8;
+      --ok: #4ade80; --err: #f87171; --border: #334155;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg); color: var(--text); line-height: 1.5;
+    }
+    header { padding: 2rem 1.5rem 1rem; text-align: center; }
+    header h1 { margin: 0 0 .25rem; font-size: 1.6rem; }
+    header h1 .go { color: var(--go); } header h1 .wasm { color: var(--accent); }
+    header p { margin: 0; color: var(--muted); }
+    #status {
+      display: inline-block; margin-top: .75rem; padding: .25rem .75rem;
+      border-radius: 999px; font-size: .8rem; background: var(--panel-2);
+    }
+    #status.ready { background: #14532d; color: var(--ok); }
+    #status.error { background: #7f1d1d; color: var(--err); }
+    main { max-width: 920px; margin: 0 auto; padding: 1rem 1.5rem 4rem; display: grid; gap: 1.25rem; }
+    .card {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1.25rem;
+    }
+    .card h2 { margin: 0 0 .75rem; font-size: 1.1rem; }
+    .card p.hint { margin: 0 0 1rem; color: var(--muted); font-size: .85rem; }
+    label { display: block; font-size: .8rem; color: var(--muted); margin: .5rem 0 .25rem; }
+    textarea, input[type=text], input[type=number], select {
+      width: 100%; padding: .55rem .65rem; background: var(--bg); color: var(--text);
+      border: 1px solid var(--border); border-radius: 8px; font: inherit;
+    }
+    textarea { min-height: 90px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85rem; }
+    .row { display: flex; flex-wrap: wrap; gap: .5rem; align-items: end; }
+    .row > * { flex: 1 1 auto; }
+    button {
+      background: var(--accent); color: #082f49; border: 0; border-radius: 8px;
+      padding: .55rem 1rem; font: inherit; font-weight: 600; cursor: pointer;
+    }
+    button:hover { filter: brightness(1.08); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    pre.out {
+      margin: .75rem 0 0; padding: .75rem; background: var(--bg); border-radius: 8px;
+      border: 1px solid var(--border); overflow-x: auto; font-size: .8rem;
+      white-space: pre-wrap; word-break: break-word; min-height: 1.5rem;
+    }
+    .timing { color: var(--muted); font-size: .78rem; margin-top: .4rem; }
+    table { width: 100%; border-collapse: collapse; margin-top: .75rem; font-size: .85rem; }
+    th, td { text-align: right; padding: .4rem .5rem; border-bottom: 1px solid var(--border); }
+    th:first-child, td:first-child { text-align: left; }
+    thead th { color: var(--muted); font-weight: 600; }
+    .bar { height: 6px; border-radius: 3px; background: var(--accent); }
+    .imgs { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: .75rem; }
+    .imgs figure { margin: 0; }
+    .imgs img { max-width: 220px; max-height: 220px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+    .imgs figcaption { color: var(--muted); font-size: .75rem; margin-top: .25rem; }
+    a.download { color: var(--accent); font-size: .8rem; }
+    footer { text-align: center; color: var(--muted); font-size: .8rem; padding-bottom: 2rem; }
+    code { background: var(--bg); padding: .1rem .35rem; border-radius: 5px; font-size: .82em; }
+  </style>
+  <script src="wasm_exec.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Playing with <span class="go">Go</span> &amp; <span class="wasm">WebAssembly</span></h1>
+    <p>Hashing, compression and image processing — all running in Go compiled to Wasm.</p>
+    <div id="status">Loading WebAssembly…</div>
+  </header>
+
+  <main>
+    <!-- JSON formatter -->
+    <section class="card">
+      <h2>JSON formatter</h2>
+      <p class="hint">Pretty-prints JSON using Go's <code>encoding/json</code>.</p>
+      <textarea id="json-in">{"name":"go-wasm-play","nested":{"a":1,"b":[2,3]},"ok":true}</textarea>
+      <div class="row" style="margin-top:.5rem">
+        <button id="json-btn" disabled>Format JSON</button>
+      </div>
+      <pre class="out" id="json-out"></pre>
+    </section>
+
+    <!-- File input -->
+    <section class="card">
+      <h2>Pick a file</h2>
+      <p class="hint">Everything below runs on this file. Large files are fine — bytes are copied
+        to Go in a single transfer.</p>
+      <input type="file" id="file" />
+      <pre class="out" id="file-info">No file selected.</pre>
+    </section>
+
+    <!-- Checksums -->
+    <section class="card">
+      <h2>Checksum</h2>
+      <p class="hint">Hash the selected file with Go's crypto packages.</p>
+      <div class="row">
+        <div style="flex: 0 0 160px">
+          <label for="algo">Algorithm</label>
+          <select id="algo"></select>
+        </div>
+        <button id="hash-btn" disabled>Compute checksum</button>
+      </div>
+      <pre class="out" id="hash-out"></pre>
+      <div class="timing" id="hash-timing"></div>
+    </section>
+
+    <!-- Compression benchmark -->
+    <section class="card">
+      <h2>Compression benchmark</h2>
+      <p class="hint">Compresses the file with gzip, zlib and flate and compares size and speed.</p>
+      <div class="row">
+        <button id="comp-btn" disabled>Run benchmark</button>
+      </div>
+      <table id="comp-table" hidden>
+        <thead>
+          <tr><th>Algorithm</th><th>Size</th><th>Saved</th><th>Time</th><th style="width:30%"></th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="timing" id="comp-timing"></div>
+    </section>
+
+    <!-- Image tools -->
+    <section class="card">
+      <h2>Image tools</h2>
+      <p class="hint">Pick a PNG, JPEG or GIF above to resize or convert it to grayscale in Go.</p>
+      <div class="row">
+        <div style="flex:0 0 110px"><label for="w">Width</label><input type="number" id="w" value="200" min="1" /></div>
+        <div style="flex:0 0 110px"><label for="h">Height</label><input type="number" id="h" value="0" min="0" placeholder="auto" /></div>
+        <div style="flex:0 0 120px"><label for="fmt">Output</label>
+          <select id="fmt"><option value="png">png</option><option value="jpeg">jpeg</option></select>
+        </div>
+        <button id="resize-btn" disabled>Resize</button>
+        <button id="gray-btn" disabled>Grayscale</button>
+      </div>
+      <div class="timing" id="img-timing"></div>
+      <div class="imgs" id="img-out"></div>
+    </section>
+  </main>
+
+  <footer>
+    Built with Go <span id="ver"></span> · served with on-the-fly gzip · view the
+    <a href="https://github.com/lao/go-wasm-play">source</a>.
+  </footer>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const status = $("status");
+    let currentFile = null;
+
+    const fmtBytes = (n) => {
+      if (n < 1024) return n + " B";
+      if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
+      return (n / 1024 / 1024).toFixed(2) + " MB";
+    };
+    const fileBytes = async () => new Uint8Array(await currentFile.arrayBuffer());
+
+    // --- boot the wasm module ---
+    const go = new Go();
+    WebAssembly.instantiateStreaming(fetch("json.wasm"), go.importObject)
+      .then((result) => {
+        go.run(result.instance);
+        onReady();
+      })
+      .catch((err) => {
+        status.textContent = "Failed to load Wasm: " + err;
+        status.className = "error";
+      });
+
+    function onReady() {
+      status.textContent = "WebAssembly ready";
+      status.className = "ready";
+
+      // populate checksum algorithms advertised by the module
+      const algoSel = $("algo");
+      (wasmCapabilities?.checksum ?? ["md5", "sha256"]).forEach((a) => {
+        const opt = document.createElement("option");
+        opt.value = a; opt.textContent = a;
+        if (a === "sha256") opt.selected = true;
+        algoSel.appendChild(opt);
+      });
+
+      ["json-btn"].forEach((id) => ($(id).disabled = false));
+      bindHandlers();
+    }
+
+    function bindHandlers() {
+      $("json-btn").onclick = () => {
+        try { $("json-out").textContent = formatJSON($("json-in").value); }
+        catch (e) { $("json-out").textContent = String(e); }
+      };
+
+      $("file").onchange = (e) => {
+        currentFile = e.target.files[0] || null;
+        const fileButtons = ["hash-btn", "comp-btn", "resize-btn", "gray-btn"];
+        if (!currentFile) {
+          $("file-info").textContent = "No file selected.";
+          fileButtons.forEach((id) => ($(id).disabled = true));
+          return;
+        }
+        $("file-info").textContent =
+          `${currentFile.name}\n${fmtBytes(currentFile.size)} · ${currentFile.type || "unknown type"}`;
+        fileButtons.forEach((id) => ($(id).disabled = false));
+        $("img-out").innerHTML = "";
+        describeImage();
+      };
+
+      $("hash-btn").onclick = withBusy("hash-btn", async () => {
+        const bytes = await fileBytes();
+        const t = performance.now();
+        const digest = await checksum($("algo").value, bytes);
+        $("hash-out").textContent = digest;
+        $("hash-timing").textContent =
+          `${$("algo").value} of ${fmtBytes(bytes.length)} in ${(performance.now() - t).toFixed(1)} ms`;
+      }, "hash-out");
+
+      $("comp-btn").onclick = withBusy("comp-btn", async () => {
+        const bytes = await fileBytes();
+        const t = performance.now();
+        const results = await benchmarkCompression(bytes);
+        renderCompTable(results);
+        $("comp-timing").textContent =
+          `Compressed ${fmtBytes(bytes.length)} with ${results.length} algorithms in ${(performance.now() - t).toFixed(1)} ms`;
+      });
+
+      $("resize-btn").onclick = withBusy("resize-btn", () =>
+        runImage((bytes) => resizeImage(bytes, +$("w").value, +$("h").value, $("fmt").value), "resized"));
+
+      $("gray-btn").onclick = withBusy("gray-btn", () =>
+        runImage((bytes) => grayscaleImage(bytes, $("fmt").value), "grayscale"));
+    }
+
+    // Disables a button while its async handler runs and surfaces errors.
+    function withBusy(btnId, fn, outId) {
+      return async () => {
+        const btn = $(btnId);
+        btn.disabled = true;
+        try { await fn(); }
+        catch (e) {
+          if (outId) $(outId).textContent = "Error: " + (e.message || e);
+          else alert("Error: " + (e.message || e));
+        } finally { btn.disabled = false; }
+      };
+    }
+
+    function renderCompTable(results) {
+      const table = $("comp-table");
+      const body = table.querySelector("tbody");
+      body.innerHTML = "";
+      const worst = Math.max(...results.map((r) => r.compressedSize));
+      results.forEach((r) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+          `<td>${r.algorithm}</td>` +
+          `<td>${fmtBytes(r.compressedSize)}</td>` +
+          `<td>${(r.saved * 100).toFixed(1)}%</td>` +
+          `<td>${r.durationMs.toFixed(1)} ms</td>` +
+          `<td><div class="bar" style="width:${(r.compressedSize / worst) * 100}%"></div></td>`;
+        body.appendChild(tr);
+      });
+      table.hidden = false;
+    }
+
+    async function describeImage() {
+      try {
+        const info = await imageInfo(await fileBytes());
+        $("file-info").textContent += `\nimage: ${info.format} ${info.width}×${info.height}`;
+      } catch { /* not an image — ignore */ }
+    }
+
+    async function runImage(transform, label) {
+      const bytes = await fileBytes();
+      const t = performance.now();
+      const out = await transform(bytes);
+      const ms = performance.now() - t;
+      const type = $("fmt").value === "jpeg" ? "image/jpeg" : "image/png";
+      const blob = new Blob([out], { type });
+      const url = URL.createObjectURL(blob);
+      $("img-timing").textContent = `${label}: ${fmtBytes(out.length)} in ${ms.toFixed(1)} ms`;
+      $("img-out").innerHTML =
+        `<figure><img src="${url}" alt="${label}" />` +
+        `<figcaption>${label} — <a class="download" href="${url}" download="${label}.${$("fmt").value}">download</a></figcaption></figure>`;
+    }
+
+    // Show the Go version baked into the page footer (kept in sync by the Makefile if desired).
+    $("ver").textContent = "";
+  </script>
+</body>
+</html>
